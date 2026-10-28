@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0b0d10" />
+    <meta
+      name="description"
+      content="StressPunch — turn your photo into a 3D punching bag and punch your stress away. 100% local, no uploads."
+    />
+    <title>StressPunch — 3D Photo Boxing</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css" />
+
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0d10'/%3E%3Cpath d='M17 17h22c6 0 10 4 10 10v14c0 6-4 10-10 10H25c-6 0-10-4-10-10V27c0-6 2-10 2-10z' fill='%23e63946'/%3E%3Cpath d='M22 28h24M22 37h24' stroke='%230b0d10' stroke-width='4' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.160.1/build/three.module.js"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene" aria-label="3D punching bag"></canvas>
+      <div class="grain" aria-hidden="true"></div>
+      <div class="vignette" aria-hidden="true"></div>
+
+      <!-- ───────────────────────── HUD ───────────────────────── -->
+      <header id="hud" class="hud is-hidden">
+        <div class="hud-side hud-left">
+          <span id="hud-mode" class="hud-mode">ZEN</span>
+          <button
+            id="btn-pause"
+            class="hud-btn"
+            type="button"
+            data-i18n-title="hud.pause"
+            data-i18n-aria="hud.pause"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <rect x="6" y="5" width="4" height="14" rx="1.2" />
+              <rect x="14" y="5" width="4" height="14" rx="1.2" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="hud-center">
+          <div id="hud-timer-wrap" class="hud-stat is-hidden">
+            <span class="hud-label" data-i18n="hud.time">TIME</span>
+            <div id="hud-timer" class="hud-timer">01:00</div>
+          </div>
+          <div id="hud-combo-wrap" class="hud-stat hud-stat-combo is-hidden">
+            <span class="hud-label" data-i18n="hud.combo">COMBO</span>
+            <div id="hud-combo" class="hud-combo">×0</div>
+          </div>
+        </div>
+
+        <div class="hud-side hud-right">
+          <div id="hud-score-wrap" class="hud-stat hud-stat-score is-hidden">
+            <span class="hud-label" data-i18n="hud.score">SCORE</span>
+            <strong id="hud-score" class="hud-score">0</strong>
+          </div>
+          <button
+            id="btn-mute"
+            class="hud-btn"
+            type="button"
+            aria-pressed="false"
+            data-i18n-title="hud.mute"
+            data-i18n-aria="hud.mute"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 9.2v5.6h3.6L13 19V5L7.6 9.2H4z" />
+              <path class="sound-wave" d="M16.2 8.4a5 5 0 0 1 0 7.2" />
+              <path class="sound-slash" d="M4 4 20 20" />
+            </svg>
+          </button>
+          <button
+            id="btn-lang"
+            class="hud-btn hud-btn-text"
+            type="button"
+            data-i18n-title="hud.language"
+            data-i18n-aria="hud.language"
+          >
+            <span id="btn-lang-text">EN</span>
+          </button>
+          <button
+            id="btn-settings"
+            class="hud-btn"
+            type="button"
+            data-i18n-title="hud.settings"
+            data-i18n-aria="hud.settings"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.8"
+              />
+              <path
+                d="M19.4 13.5c.05-.5.05-1 0-1.5l1.7-1.3-1.8-3.1-2 .8c-.4-.3-.9-.6-1.4-.8L15.6 5h-3.6l-.3 2.1c-.5.2-1 .5-1.4.8l-2-.8-1.8 3.1 1.7 1.3c-.05.5-.05 1 0 1.5l-1.7 1.3 1.8 3.1 2-.8c.4.3.9.6 1.4.8l.3 2.1h3.6l.3-2.1c.5-.2 1-.5 1.4-.8l2 .8 1.8-3.1-1.7-1.3z"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.5"
+                stroke-linejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
+      </header>
+
+      <!-- ───────────────────────── MENU / UPLOAD ───────────────────────── -->
+      <section id="screen-menu" class="screen screen-menu">
+        <div class="menu-shell">
+          <div class="brand-block">
+            <p class="eyebrow" data-i18n="brand.eyebrow">STRESS RELIEF · BOXING</p>
+            <h1 class="brand-title">
+              <span>STRESS</span>
+              <span class="accent">PUNCH</span>
+            </h1>
+            <p class="tagline" data-i18n="brand.tagline">
+              Upload a face. Throw hands. Let it go.
+            </p>
+            <div class="brand-meta">
+              <span class="meta-pill">REAL-TIME 3D</span>
+              <span class="meta-pill" data-i18n="brand.local">100% LOCAL</span>
+              <span class="meta-pill" data-i18n="brand.noAccount">NO ACCOUNT</span>
+            </div>
+            <p class="brand-hint" data-i18n="brand.hint">
+              Mouse, touch or keyboard. Works best with a little aggression.
+            </p>
+          </div>
+
+          <div class="menu-panel">
+            <div class="panel-heading">
+              <span class="step">01</span>
+              <span data-i18n="upload.chooseMode">Choose your round</span>
+            </div>
+
+            <div id="mode-grid" class="mode-grid" role="group" data-i18n-aria="upload.chooseMode">
+              <button class="mode-card" type="button" data-mode="zen">
+                <span class="mode-icon" aria-hidden="true">∞</span>
+                <span class="mode-body">
+                  <span class="mode-name" data-i18n="mode.zen.name">Zen</span>
+                  <span class="mode-desc" data-i18n="mode.zen.desc">No clock. No score. Just hits.</span>
+                </span>
+              </button>
+              <button class="mode-card" type="button" data-mode="timeAttack">
+                <span class="mode-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="13" r="8" fill="none" stroke="currentColor" stroke-width="1.8" />
+                    <path d="M12 9v4l2.5 1.5M9 3h6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                  </svg>
+                </span>
+                <span class="mode-body">
+                  <span class="mode-name" data-i18n="mode.timeAttack.name">Time Attack</span>
+                  <span class="mode-desc" data-i18n="mode.timeAttack.desc">Beat the clock. Pile up damage.</span>
+                </span>
+              </button>
+              <button class="mode-card" type="button" data-mode="combo">
+                <span class="mode-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <path d="M13 2 5 13h5l-1 9 8-11h-5l1-9z" fill="currentColor" />
+                  </svg>
+                </span>
+                <span class="mode-body">
+                  <span class="mode-name" data-i18n="mode.combo.name">Combo</span>
+                  <span class="mode-desc" data-i18n="mode.combo.desc">Keep the chain alive. One lapse ends it.</span>
+                </span>
+              </button>
+              <button class="mode-card" type="button" data-mode="precision">
+                <span class="mode-icon" aria-hidden="true">
+                  <svg viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="8.5" fill="none" stroke="currentColor" stroke-width="1.6" />
+                    <circle cx="12" cy="12" r="3.5" fill="none" stroke="currentColor" stroke-width="1.6" />
+                    <path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke="currentColor" stroke-width="1.6" />
+                  </svg>
+                </span>
+                <span class="mode-body">
+                  <span class="mode-name" data-i18n="mode.precision.name">Precision</span>
+                  <span class="mode-desc" data-i18n="mode.precision.desc">Hit the target. Drift costs points.</span>
+                </span>
+              </button>
+            </div>
+
+            <div class="panel-heading panel-heading-spaced">
+              <span class="step">02</span>
+              <span data-i18n="upload.photoTitle">Add your face</span>
+            </div>
+
+            <div class="upload-row">
+              <div class="photo-box">
+                <div
+                  id="dropzone"
+                  class="dropzone"
+                  role="button"
+                  tabindex="0"
+                  data-i18n-aria="upload.addPhotoAria"
+                >
+                  <input id="photo-input" type="file" accept="image/*" hidden />
+                  <div id="photo-empty" class="photo-empty">
+                    <span class="upload-glyph" aria-hidden="true">
+                      <svg viewBox="0 0 24 24">
+                        <path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                        <path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                      </svg>
+                    </span>
+                    <span class="photo-empty-title" data-i18n="upload.addPhoto">Add a photo</span>
+                    <span class="photo-empty-hint" data-i18n="upload.photoHint">JPG / PNG · stays on this device</span>
+                  </div>
+                  <canvas id="photo-preview" class="photo-preview" width="240" height="240" hidden></canvas>
+                  <span id="photo-change-badge" class="photo-change-badge is-hidden" data-i18n="upload.change">
+                    Change
+                  </span>
+                </div>
+                <button id="btn-remove-photo" class="text-btn is-hidden" type="button" data-i18n="upload.remove">
+                  Remove photo
+                </button>
+              </div>
+
+              <div class="photo-settings">
+                <div class="field">
+                  <span class="field-label" data-i18n="upload.style">Photo style</span>
+                  <div class="segmented" id="photo-mode-group" role="group" data-i18n-aria="upload.style">
+                    <button type="button" data-photo-mode="full" data-i18n="upload.full">Full body</button>
+                    <button type="button" data-photo-mode="portrait" data-i18n="upload.portrait">Portrait</button>
+                  </div>
+                </div>
+
+                <div class="field" id="duration-field">
+                  <span class="field-label" data-i18n="upload.duration">Round length</span>
+                  <div class="segmented" id="duration-group" role="group" data-i18n-aria="upload.duration">
+                    <button type="button" data-duration="30">30s</button>
+                    <button type="button" data-duration="60">60s</button>
+                    <button type="button" data-duration="120">120s</button>
+                  </div>
+                </div>
+
+                <p class="micro-note" data-i18n="upload.localNote">
+                  Photo stays in memory only. Refresh clears it.
+                </p>
+              </div>
+            </div>
+
+            <button id="btn-start" class="btn btn-primary btn-start" type="button">
+              <span data-i18n="upload.start">Enter the ring</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M5 12h14m0 0-5-5m5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </button>
+            <p class="start-note" data-i18n="upload.startNoPhoto">
+              No photo? No problem. The bag is already waiting.
+            </p>
+            <p class="privacy-note" data-i18n="privacy.short">
+              Photos are processed locally in your browser and never uploaded.
+            </p>
+          </div>
+        </div>
+
+        <footer class="app-footer">
+          <span data-i18n="privacy.short">Photos are processed locally in your browser and never uploaded.</span>
+          <span class="footer-dot" aria-hidden="true">·</span>
+          <span data-i18n="footer.credit">No backend. No account. No excuses.</span>
+        </footer>
+      </section>
+
+      <!-- ───────────────────────── RESULT ───────────────────────── -->
+      <section id="screen-result" class="screen screen-result is-hidden">
+        <div class="result-panel">
+          <p id="result-mode" class="eyebrow">ZEN</p>
+          <h2 id="result-title" class="result-title" data-i18n="result.title">ROUND OVER</h2>
+          <div id="result-newbest" class="new-best is-hidden" data-i18n="result.newBest">
+            NEW PERSONAL BEST
+          </div>
+
+          <span class="result-score-label" data-i18n="result.score">SCORE</span>
+          <div id="result-score" class="result-score">0</div>
+
+          <div class="result-stats">
+            <div class="result-stat">
+              <span data-i18n="result.bestCombo">Best combo</span>
+              <strong id="stat-combo">0</strong>
+            </div>
+            <div class="result-stat">
+              <span data-i18n="result.hits">Hits</span>
+              <strong id="stat-hits">0</strong>
+            </div>
+            <div class="result-stat">
+              <span data-i18n="result.best">Personal best</span>
+              <strong id="stat-best">0</strong>
+            </div>
+          </div>
+
+          <div class="result-actions">
+            <button id="btn-replay" class="btn btn-primary" type="button" data-i18n="result.replay">
+              Run it back
+            </button>
+            <div class="result-actions-secondary">
+              <button id="btn-change-mode" class="btn btn-ghost" type="button" data-i18n="result.changeMode">
+                Change mode
+              </button>
+              <button id="btn-change-photo" class="btn btn-ghost" type="button" data-i18n="result.changePhoto">
+                Change photo
+              </button>
+            </div>
+          </div>
+
+          <p class="privacy-note" data-i18n="privacy.short">
+            Photos are processed locally in your browser and never uploaded.
+          </p>
+        </div>
+      </section>
+
+      <!-- ───────────────────────── PAUSE ───────────────────────── -->
+      <section id="screen-pause" class="screen screen-pause is-hidden">
+        <div class="pause-panel">
+          <p class="eyebrow" data-i18n="pause.eyebrow">TAKE A BREATH</p>
+          <h2 data-i18n="pause.title">PAUSED</h2>
+          <p class="pause-sub" data-i18n="pause.sub">The bag isn't going anywhere.</p>
+          <div class="pause-actions">
+            <button id="btn-resume" class="btn btn-primary" type="button" data-i18n="pause.resume">Resume</button>
+            <button id="btn-restart" class="btn btn-ghost" type="button" data-i18n="pause.restart">Restart</button>
+            <button id="btn-end-round" class="btn btn-ghost is-hidden" type="button" data-i18n="pause.finish">
+              End round
+            </button>
+            <button id="btn-quit" class="btn btn-quiet" type="button" data-i18n="pause.quit">Quit to menu</button>
+          </div>
+          <p class="shortcut-hint" data-i18n="shortcuts.hint">
+            J / K / Space punch · ← → aim · Esc pause
+          </p>
+        </div>
+      </section>
+
+      <!-- ───────────────────────── SETTINGS ───────────────────────── -->
+      <div id="settings-backdrop" class="sheet-backdrop is-hidden"></div>
+      <aside id="settings-sheet" class="sheet is-hidden" role="dialog" aria-modal="true" aria-labelledby="settings-title">
+        <div class="sheet-header">
+          <h2 id="settings-title" data-i18n="settings.title">Settings</h2>
+          <button id="btn-settings-close" class="hud-btn" type="button" data-i18n-aria="settings.close" data-i18n-title="settings.close">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="m6 6 12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+            </svg>
+          </button>
+        </div>
+
+        <div class="sheet-body">
+          <div class="sheet-field">
+            <span class="field-label" data-i18n="settings.language">Language</span>
+            <div class="segmented" id="settings-language-group" role="group" data-i18n-aria="settings.language">
+              <button type="button" data-lang="zh">中文</button>
+              <button type="button" data-lang="en">English</button>
+            </div>
+          </div>
+
+          <div class="sheet-field">
+            <span class="field-label" data-i18n="settings.sound">Sound</span>
+            <button id="settings-sound" class="toggle-row" type="button" aria-pressed="false">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+              <span id="settings-sound-text" data-i18n="settings.soundOn">Sound on</span>
+            </button>
+          </div>
+
+          <div class="sheet-field">
+            <span class="field-label" data-i18n="settings.duration">Round length</span>
+            <div class="segmented" id="settings-duration-group" role="group" data-i18n-aria="settings.duration">
+              <button type="button" data-duration="30">30s</button>
+              <button type="button" data-duration="60">60s</button>
+              <button type="button" data-duration="120">120s</button>
+            </div>
+          </div>
+
+          <div class="sheet-field">
+            <span class="field-label" data-i18n="settings.photoStyle">Photo style</span>
+            <div class="segmented" id="settings-photo-group" role="group" data-i18n-aria="settings.photoStyle">
+              <button type="button" data-photo-mode="full" data-i18n="upload.full">Full body</button>
+              <button type="button" data-photo-mode="portrait" data-i18n="upload.portrait">Portrait</button>
+            </div>
+          </div>
+
+          <div class="sheet-field sheet-field-shortcuts">
+            <span class="field-label" data-i18n="settings.shortcuts">Controls</span>
+            <p class="shortcut-hint" data-i18n="shortcuts.hint">
+              J / K / Space punch · ← → aim · Esc pause
+            </p>
+            <p class="shortcut-hint" data-i18n="shortcuts.touch">
+              Tap for a jab. Swipe fast for a hook or uppercut. Hold to keep punching.
+            </p>
+          </div>
+
+          <div class="sheet-field">
+            <span class="field-label" data-i18n="settings.privacyTitle">Privacy</span>
+            <p class="privacy-note" data-i18n="privacy.long">
+              Your photo is read with the browser's local file API, drawn into a canvas and attached to the 3D bag. It never leaves this device and is never written to storage.
+            </p>
+          </div>
+
+          <button id="btn-reset-best" class="btn btn-danger-quiet" type="button" data-i18n="settings.resetBest">
+            Reset personal bests
+          </button>
+        </div>
+      </aside>
+
+      <!-- ───────────────────────── EFFECT LAYERS ───────────────────────── -->
+      <div id="precision-target" class="precision-target is-hidden" aria-hidden="true">
+        <span class="target-ring"></span>
+        <span class="target-dot"></span>
+      </div>
+      <div id="aim-reticle" class="aim-reticle is-hidden" aria-hidden="true"></div>
+      <div id="combo-layer" class="combo-layer" aria-hidden="true"></div>
+      <div id="hit-flash" class="hit-flash" aria-hidden="true"></div>
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+      <noscript>
+        <div class="noscript">StressPunch needs JavaScript and WebGL to run.</div>
+      </noscript>
+    </div>
+
+    <script type="module" src="./src/main.js"></script>
+  </body>
+</html>
